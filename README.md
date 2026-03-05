@@ -1,6 +1,6 @@
-# Semiología Notas (GitHub Pages)
+# Semiología Notas (GitHub Pages + Google Sheets)
 
-Proyecto React + Vite preparado para publicar en GitHub Pages.
+Proyecto React + Vite conectado con Google Sheets vía Google Apps Script.
 
 ## Ejecutar local
 
@@ -14,6 +14,46 @@ npm run dev
 ```bash
 npm run build
 ```
+
+## Integración con Google Sheets
+
+### 1) Estructura de la hoja
+
+En Google Sheets crea una pestaña llamada `Notas` con encabezados en la fila 1:
+
+`id | nombre | S1 | S2 | ... | S16 | promedio`
+
+En filas 2+ coloca estudiantes con `id` numérico (1..9) y `nombre`.
+
+### 2) Apps Script
+
+1. Abre `Extensiones -> Apps Script` desde tu hoja.
+2. Copia el contenido de [google-apps-script/Code.gs](google-apps-script/Code.gs).
+3. `Deploy -> New deployment -> Web app`.
+4. Ejecutar como: `Me`.
+5. Acceso: `Anyone with the link`.
+6. Copia la URL terminada en `/exec`.
+
+### 3) Variable de entorno
+
+1. Copia `.env.example` a `.env`.
+2. Configura:
+
+```bash
+VITE_GAS_URL=https://script.google.com/macros/s/TU_DEPLOYMENT_ID/exec
+```
+
+### 4) Ejecutar y probar
+
+```bash
+npm install
+npm run dev
+```
+
+La app ahora:
+- Carga notas desde Google Sheets al abrir.
+- Guarda cada celda automáticamente al editar.
+- Muestra estado de sincronización en el encabezado.
 
 ## Publicar en GitHub Pages (rama `gh-pages`)
 
@@ -48,3 +88,4 @@ Tu sitio quedará en:
 
 - Se usa `base: './'` en `vite.config.js` para evitar problemas de rutas estáticas en GitHub Pages.
 - Script de deploy ya configurado en `package.json`.
+- Si `VITE_GAS_URL` está vacío, funciona en modo local sin sincronizar.

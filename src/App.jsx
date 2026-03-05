@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronRight, FileSpreadsheet, Info } from 'lucide-react';
 
 const App = () => {
+  const SCRIPT_URL = import.meta.env.VITE_GAS_URL || '';
+
   const initialStudents = [
     'Mario Francisco Gaitán Gutiérrez',
     'Yasary Fabiola Saavedra Guillén',
@@ -25,12 +27,80 @@ const App = () => {
   });
 
   const [activeTab, setActiveTab] = useState('grades');
+  const [syncStatus, setSyncStatus] = useState('Sincronización local');
+  const saveTimersRef = useRef({});
 
   const calculateAverage = (scores) => {
     const numericScores = scores.filter((s) => s !== '' && !isNaN(parseFloat(s))).map(Number);
     if (numericScores.length === 0) return 0;
     const sum = numericScores.reduce((a, b) => a + b, 0);
     return (sum / numericScores.length).toFixed(1);
+  };
+
+  const loadFromSheets = async () => {
+    if (!SCRIPT_URL) {
+      setSyncStatus('Sin URL de Apps Script (VITE_GAS_URL)');
+      return;
+    }
+
+    try {
+      setSyncStatus('Cargando desde Google Sheets...');
+      const response = await fetch(`${SCRIPT_URL}?action=load`);
+      const result = await response.json();
+
+      if (!result.ok || !Array.isArray(result.data)) {
+        throw new Error(result.error || 'Respuesta inválida');
+      }
+
+      const merged = initialStudents.map((name, index) => {
+        const id = index + 1;
+        const fromSheet = result.data.find((student) => Number(student.id) === id);
+        return {
+          id,
+          nombre: name,
+          scores: fromSheet?.scores?.length === 16 ? fromSheet.scores.map((s) => (s ?? '').toString()) : Array(16).fill('')
+        };
+      });
+
+      setData(merged);
+      setSyncStatus('Conectado con Google Sheets');
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('Error de carga. Trabajando en modo local');
+    }
+  };
+
+  useEffect(() => {
+    loadFromSheets();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimersRef.current).forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  const persistScore = async (studentId, weekIndex, value) => {
+    if (!SCRIPT_URL) return;
+
+    const body = new URLSearchParams({
+      action: 'save',
+      studentId: String(studentId),
+      weekIndex: String(weekIndex),
+      score: value
+    });
+
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body
+    });
+
+    const result = await response.json();
+    if (!result.ok) {
+      throw new Error(result.error || 'Error guardando nota');
+    }
   };
 
   const handleScoreChange = (studentId, weekIndex, value) => {
@@ -46,6 +116,24 @@ const App = () => {
         return student;
       })
     );
+
+    if (!SCRIPT_URL) return;
+
+    const key = `${studentId}-${weekIndex}`;
+    if (saveTimersRef.current[key]) {
+      clearTimeout(saveTimersRef.current[key]);
+    }
+
+    setSyncStatus('Sincronizando...');
+    saveTimersRef.current[key] = setTimeout(async () => {
+      try {
+        await persistScore(studentId, weekIndex, value);
+        setSyncStatus('Guardado en Google Sheets');
+      } catch (error) {
+        console.error(error);
+        setSyncStatus('Error al guardar en Google Sheets');
+      }
+    }, 450);
   };
 
   const exportToCSV = () => {
@@ -75,6 +163,7 @@ const App = () => {
               Semiología Médica
             </h1>
             <p className="text-slate-500 font-medium">Dr. Denis Vanegas Corrales | Control Semestral de Acumulados</p>
+            <p className="text-xs text-slate-500 mt-1">Estado: {syncStatus}</p>
           </div>
           <div className="flex gap-3">
             <button
