@@ -25,6 +25,20 @@ En Google Sheets crea una pestaña llamada `Notas` con encabezados en la fila 1:
 
 En filas 2+ coloca estudiantes con `id` numérico (1..9) y `nombre`.
 
+Además crea una pestaña llamada `Rubrica` con encabezados:
+
+`criterio | peso | descripcion`
+
+Ejemplo:
+
+- `Entrevista con el paciente | 25 | Realiza anamnesis dirigida, clara y ordenada.`
+- `Ejecutó técnicas de examen físico | 25 | Aplica correctamente inspección, palpación, percusión y auscultación.`
+- `Razonamiento clínico | 20 | Integra hallazgos y plantea diagnósticos diferenciales pertinentes.`
+- `Hoja de historia clínica elaborada | 20 | Documenta de forma completa, legible y estructurada.`
+- `Asistencia en la semana | 10 | Cumple asistencia y participación durante la semana.`
+
+> La pestaña `Evaluaciones` se crea automáticamente la primera vez que guardas una evaluación diaria desde la app.
+
 ### 2) Apps Script
 
 1. Abre `Extensiones -> Apps Script` desde tu hoja.
@@ -52,8 +66,12 @@ npm run dev
 
 La app ahora:
 - Carga notas desde Google Sheets al abrir.
-- Guarda cada celda automáticamente al editar.
+- Carga la rúbrica desde la pestaña `Rubrica` (si existe).
+- Permite evaluar diariamente por fecha y semana para todos los estudiantes.
+- Guarda cada evaluación diaria en la hoja `Evaluaciones` (una fila por estudiante y por fecha).
+- Actualiza automáticamente la nota semanal correspondiente (`S1...S16`) con el promedio acumulado de esa semana.
 - Muestra estado de sincronización en el encabezado.
+- Permite descargar CSV solo como respaldo local.
 
 ## Publicar en GitHub Pages (rama `gh-pages`)
 
@@ -88,4 +106,4 @@ Tu sitio quedará en:
 
 - Se usa `base: './'` en `vite.config.js` para evitar problemas de rutas estáticas en GitHub Pages.
 - Script de deploy ya configurado en `package.json`.
-- Si `VITE_GAS_URL` está vacío, funciona en modo local sin sincronizar.
+- Si `VITE_GAS_URL` está vacío o falla la conexión, funciona en modo local sin sincronizar.

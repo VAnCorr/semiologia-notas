@@ -1,22 +1,110 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronRight, FileSpreadsheet, Info } from 'lucide-react';
 
+const DEFAULT_RUBRIC = [
+  {
+    id: 1,
+    criterio: 'Entrevista con el paciente',
+    peso: 25,
+    descripcion: 'Realiza anamnesis dirigida, clara y ordenada.'
+  },
+  {
+    id: 2,
+    criterio: 'Ejecutó técnicas de examen físico',
+    peso: 25,
+    descripcion: 'Aplica correctamente inspección, palpación, percusión y auscultación.'
+  },
+  {
+    id: 3,
+    criterio: 'Razonamiento clínico',
+    peso: 20,
+    descripcion: 'Integra hallazgos y plantea diagnósticos diferenciales pertinentes.'
+  },
+  {
+    id: 4,
+    criterio: 'Hoja de historia clínica elaborada',
+    peso: 20,
+    descripcion: 'Documenta de forma completa, legible y estructurada.'
+  },
+  {
+    id: 5,
+    criterio: 'Asistencia en la semana',
+    peso: 10,
+    descripcion: 'Cumple asistencia y participación durante la semana.'
+  }
+];
+
+const RUBRIC_STYLES = [
+  {
+    wrapper: 'bg-blue-50 border-blue-100',
+    title: 'text-blue-900',
+    description: 'text-blue-800'
+  },
+  {
+    wrapper: 'bg-emerald-50 border-emerald-100',
+    title: 'text-emerald-900',
+    description: 'text-emerald-800'
+  },
+  {
+    wrapper: 'bg-amber-50 border-amber-100',
+    title: 'text-amber-900',
+    description: 'text-amber-800'
+  },
+  {
+    wrapper: 'bg-purple-50 border-purple-100',
+    title: 'text-purple-900',
+    description: 'text-purple-800'
+  },
+  {
+    wrapper: 'bg-rose-50 border-rose-100',
+    title: 'text-rose-900',
+    description: 'text-rose-800'
+  }
+];
+
+const initialStudents = [
+  'Mario Francisco Gaitán Gutiérrez',
+  'Yasary Fabiola Saavedra Guillén',
+  'Kelly Daniella Vallejos Muñoz',
+  'Raysa Indira Aguilar Solís',
+  'José Antonio Aguilar Ulloa',
+  'Alfonso José Alarcón Kuan',
+  'Anthony Marcel Díaz Gutiérrez',
+  'Nasim Arath Escobar Brizuela',
+  'Ahtziri Rene Esquivel Córdoba'
+];
+
+const weeks = Array.from({ length: 16 }, (_, i) => `S${i + 1}`);
+
+const getTodayDate = () => {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getDate()}`.padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+};
+
+const mergeStudents = (sheetData) => {
+  return initialStudents.map((name, index) => {
+    const id = index + 1;
+    const fromSheet = sheetData.find((student) => Number(student.id) === id);
+    return {
+      id,
+      nombre: name,
+      scores: fromSheet?.scores?.length === 16 ? fromSheet.scores.map((s) => (s ?? '').toString()) : Array(16).fill('')
+    };
+  });
+};
+
+const createEmptyDailyRows = (students) => {
+  return students.map((student) => ({
+    id: student.id,
+    nombre: student.nombre,
+    rubricScores: Array(DEFAULT_RUBRIC.length).fill('')
+  }));
+};
+
 const App = () => {
   const SCRIPT_URL = import.meta.env.VITE_GAS_URL || '';
-
-  const initialStudents = [
-    'Mario Francisco Gaitán Gutiérrez',
-    'Yasary Fabiola Saavedra Guillén',
-    'Kelly Daniella Vallejos Muñoz',
-    'Raysa Indira Aguilar Solís',
-    'José Antonio Aguilar Ulloa',
-    'Alfonso José Alarcón Kuan',
-    'Anthony Marcel Díaz Gutiérrez',
-    'Nasim Arath Escobar Brizuela',
-    'Ahtziri Rene Esquivel Córdoba'
-  ];
-
-  const weeks = Array.from({ length: 16 }, (_, i) => `S${i + 1}`);
 
   const [data, setData] = useState(() => {
     return initialStudents.map((name, index) => ({
@@ -26,8 +114,13 @@ const App = () => {
     }));
   });
 
-  const [activeTab, setActiveTab] = useState('grades');
   const [syncStatus, setSyncStatus] = useState('Sincronización local');
+  const [evaluationDate, setEvaluationDate] = useState(getTodayDate());
+  const [evaluationWeekIndex, setEvaluationWeekIndex] = useState(0);
+  const [dailyRows, setDailyRows] = useState(() =>
+    createEmptyDailyRows(initialStudents.map((name, index) => ({ id: index + 1, nombre: name })))
+  );
+  const [isSavingDaily, setIsSavingDaily] = useState(false);
   const saveTimersRef = useRef({});
 
   const calculateAverage = (scores) => {
@@ -35,6 +128,21 @@ const App = () => {
     if (numericScores.length === 0) return 0;
     const sum = numericScores.reduce((a, b) => a + b, 0);
     return (sum / numericScores.length).toFixed(1);
+  };
+
+  const calculateDailyTotal = (rubricScores) => {
+    const weights = DEFAULT_RUBRIC.map((item) => Number(item.peso) || 0);
+    const allFilled = rubricScores.every((s) => s !== '');
+    if (!allFilled) return '';
+
+    const numeric = rubricScores.map((s) => Number(s));
+    if (numeric.some((n) => isNaN(n))) return '';
+
+    const totalWeight = weights.reduce((acc, current) => acc + current, 0);
+    if (totalWeight <= 0) return '';
+
+    const weighted = numeric.reduce((acc, current, index) => acc + current * weights[index], 0) / totalWeight;
+    return weighted.toFixed(1);
   };
 
   const loadFromSheets = async () => {
@@ -45,28 +153,21 @@ const App = () => {
 
     try {
       setSyncStatus('Cargando desde Google Sheets...');
-      const response = await fetch(`${SCRIPT_URL}?action=load`);
-      const result = await response.json();
+      const gradesResponse = await fetch(`${SCRIPT_URL}?action=load`);
+      const gradesResult = await gradesResponse.json();
 
-      if (!result.ok || !Array.isArray(result.data)) {
-        throw new Error(result.error || 'Respuesta inválida');
+      if (!gradesResult.ok || !Array.isArray(gradesResult.data)) {
+        throw new Error(gradesResult.error || 'Respuesta inválida de notas');
       }
 
-      const merged = initialStudents.map((name, index) => {
-        const id = index + 1;
-        const fromSheet = result.data.find((student) => Number(student.id) === id);
-        return {
-          id,
-          nombre: name,
-          scores: fromSheet?.scores?.length === 16 ? fromSheet.scores.map((s) => (s ?? '').toString()) : Array(16).fill('')
-        };
-      });
-
+      const merged = mergeStudents(gradesResult.data);
       setData(merged);
+      setDailyRows(createEmptyDailyRows(merged));
       setSyncStatus('Conectado con Google Sheets');
     } catch (error) {
       console.error(error);
       setSyncStatus('Error de carga. Trabajando en modo local');
+      setDailyRows(createEmptyDailyRows(data));
     }
   };
 
@@ -124,16 +225,94 @@ const App = () => {
       clearTimeout(saveTimersRef.current[key]);
     }
 
-    setSyncStatus('Sincronizando...');
+    setSyncStatus('Sincronizando notas semanales...');
     saveTimersRef.current[key] = setTimeout(async () => {
       try {
         await persistScore(studentId, weekIndex, value);
-        setSyncStatus('Guardado en Google Sheets');
+        setSyncStatus('Notas semanales guardadas en Google Sheets');
       } catch (error) {
         console.error(error);
-        setSyncStatus('Error al guardar en Google Sheets');
+        setSyncStatus('Error al guardar notas semanales');
       }
     }, 450);
+  };
+
+  const handleDailyScoreChange = (studentId, criterionIndex, value) => {
+    if (value !== '' && (isNaN(value) || Number(value) < 0 || Number(value) > 100)) return;
+
+    setDailyRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== studentId) return row;
+        const nextScores = [...row.rubricScores];
+        nextScores[criterionIndex] = value;
+        return { ...row, rubricScores: nextScores };
+      })
+    );
+  };
+
+  const saveDailyEvaluation = async () => {
+    if (!SCRIPT_URL) {
+      setSyncStatus('No hay URL de Apps Script para guardar la rúbrica');
+      return;
+    }
+
+    if (!evaluationDate) {
+      setSyncStatus('Seleccione una fecha antes de guardar');
+      return;
+    }
+
+    const hasIncomplete = dailyRows.some((row) => row.rubricScores.some((score) => score === ''));
+    if (hasIncomplete) {
+      setSyncStatus('Complete todos los puntajes de todos los estudiantes (0-100)');
+      return;
+    }
+
+    const payload = dailyRows.map((row) => ({
+      studentId: row.id,
+      nombre: row.nombre,
+      scores: row.rubricScores.map((score) => Number(score)),
+      total: Number(calculateDailyTotal(row.rubricScores))
+    }));
+
+    if (payload.some((item) => isNaN(item.total))) {
+      setSyncStatus('Verifique los puntajes antes de guardar');
+      return;
+    }
+
+    setIsSavingDaily(true);
+    setSyncStatus('Guardando evaluación diaria en Google Sheets...');
+
+    try {
+      const body = new URLSearchParams({
+        action: 'save-evaluations',
+        date: evaluationDate,
+        weekIndex: String(evaluationWeekIndex),
+        evaluations: JSON.stringify(payload)
+      });
+
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body
+      });
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'No se pudo guardar la evaluación');
+      }
+
+      if (Array.isArray(result.data)) {
+        const merged = mergeStudents(result.data);
+        setData(merged);
+      }
+
+      setDailyRows(createEmptyDailyRows(data));
+      setSyncStatus(`Evaluación ${evaluationDate} guardada en ${weeks[evaluationWeekIndex]}`);
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('Error al guardar la evaluación diaria');
+    } finally {
+      setIsSavingDaily(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -162,7 +341,7 @@ const App = () => {
               <BookOpen className="text-blue-600" />
               Semiología Médica
             </h1>
-            <p className="text-slate-500 font-medium">Dr. Denis Vanegas Corrales | Control Semestral de Acumulados</p>
+            <p className="text-slate-500 font-medium">Dr. Denis Vanegas Corrales | Rúbrica Semanal de Evaluación</p>
             <p className="text-xs text-slate-500 mt-1">Estado: {syncStatus}</p>
           </div>
           <div className="flex gap-3">
@@ -171,134 +350,130 @@ const App = () => {
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-semibold text-sm"
             >
               <FileSpreadsheet size={18} />
-              Exportar para Google Sheets
+              Descargar respaldo CSV
             </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto">
-        <div className="flex gap-2 mb-6 bg-slate-200/50 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setActiveTab('grades')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'grades' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Planilla de Notas
-          </button>
-          <button
-            onClick={() => setActiveTab('rubric')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'rubric' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Rúbrica de Evaluación
-          </button>
-        </div>
-
-        {activeTab === 'grades' ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 border-r w-12">No.</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-12 bg-slate-50 z-10 border-r min-w-[250px]">Nombre del Estudiante</th>
-                    {weeks.map((w) => (
-                      <th key={w} className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-r min-w-[60px]">
-                        {w}
-                      </th>
-                    ))}
-                    <th className="p-4 text-xs font-bold text-blue-700 uppercase tracking-wider text-center bg-blue-50 sticky right-0 z-10 border-l">Prom</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 text-sm font-medium text-slate-400 sticky left-0 bg-white border-r">{student.id}</td>
-                      <td className="p-4 text-sm font-semibold text-slate-700 sticky left-12 bg-white border-r">{student.nombre}</td>
-                      {student.scores.map((score, wIndex) => (
-                        <td key={wIndex} className="p-1 border-r text-center">
-                          <input
-                            type="text"
-                            value={score}
-                            onChange={(e) => handleScoreChange(student.id, wIndex, e.target.value)}
-                            className={`w-full h-10 text-center text-sm border-none focus:ring-2 focus:ring-blue-400 focus:outline-none rounded ${
-                              score < 60 && score !== '' ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700'
-                            }`}
-                            placeholder="-"
-                          />
-                        </td>
-                      ))}
-                      <td className="p-4 text-sm font-bold text-center bg-blue-50 sticky right-0 z-10 border-l">
-                        <span className={calculateAverage(student.scores) < 60 ? 'text-red-600' : 'text-blue-700'}>
-                          {calculateAverage(student.scores)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-slate-50 text-xs text-slate-500 flex gap-4">
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-red-50 border border-red-200"></div>
-                Nota Reprobatoria (&lt;60)
-              </span>
-              <span>* Las notas se guardan mientras la pestaña esté abierta. Use el botón exportar para guardar permanentemente.</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
+            <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+              <Info size={20} />
+              Rúbrica de evaluación (0-100)
+            </h3>
+            <div className="space-y-4">
+              {DEFAULT_RUBRIC.map((criterion, index) => {
+                const style = RUBRIC_STYLES[index % RUBRIC_STYLES.length];
+                return (
+                  <div key={criterion.id} className={`p-4 rounded-xl border ${style.wrapper}`}>
+                    <p className={`font-bold ${style.title}`}>
+                      {index + 1}. {criterion.criterio} ({criterion.peso}%)
+                    </p>
+                    <p className={`text-sm ${style.description}`}>{criterion.descripcion}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
-                <Info size={20} />
-                Criterios de Evaluación Semanal
-              </h3>
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-                  <p className="font-bold text-blue-900">1. Historia Clínica (30%)</p>
-                  <p className="text-sm text-blue-800">Anamnesis completa, motivo de consulta claro y cronología lógica.</p>
-                </div>
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <p className="font-bold text-emerald-900">2. Examen Físico (30%)</p>
-                  <p className="text-sm text-emerald-800">Técnicas correctas de semiotecnia y descripción precisa de hallazgos.</p>
-                </div>
-                <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
-                  <p className="font-bold text-amber-900">3. Razonamiento Clínico (30%)</p>
-                  <p className="text-sm text-amber-800">Planteamiento de síndromes y diagnósticos diferenciales.</p>
-                </div>
-                <div className="p-4 rounded-xl bg-purple-50 border border-purple-100">
-                  <p className="font-bold text-purple-900">4. Comunicación y Ética (10%)</p>
-                  <p className="text-sm text-purple-800">Relación médico-paciente y uso de terminología médica.</p>
-                </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+            <h3 className="text-lg font-bold text-blue-900 mb-4">Evaluación diaria de estudiantes</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Fecha de evaluación</label>
+                <input
+                  type="date"
+                  value={evaluationDate}
+                  onChange={(e) => setEvaluationDate(e.target.value)}
+                  className="w-full h-10 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Semana</label>
+                <select
+                  value={evaluationWeekIndex}
+                  onChange={(e) => setEvaluationWeekIndex(Number(e.target.value))}
+                  className="w-full h-10 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                >
+                  {weeks.map((week, index) => (
+                    <option key={week} value={index}>
+                      {week}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={saveDailyEvaluation}
+                  disabled={isSavingDaily}
+                  className="w-full h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-semibold text-sm transition-colors"
+                >
+                  {isSavingDaily ? 'Guardando...' : 'Guardar evaluación del día'}
+                </button>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h3 className="text-lg font-bold text-blue-900 mb-4">Instrucciones de Uso</h3>
-              <ul className="space-y-3 text-sm text-slate-600">
-                <li className="flex gap-2">
-                  <ChevronRight size={16} className="text-blue-500 shrink-0" />
-                  <span>Ingrese las calificaciones (0-100) en las casillas correspondientes a cada semana (S1 a S16).</span>
-                </li>
-                <li className="flex gap-2">
-                  <ChevronRight size={16} className="text-blue-500 shrink-0" />
-                  <span>El promedio se calculará automáticamente a medida que agregue notas.</span>
-                </li>
-                <li className="flex gap-2">
-                  <ChevronRight size={16} className="text-blue-500 shrink-0" />
-                  <span>Al finalizar el día o la semana, presione "Exportar para Google Sheets" para descargar un archivo .csv.</span>
-                </li>
-                <li className="flex gap-2">
-                  <ChevronRight size={16} className="text-blue-500 shrink-0" />
-                  <span>Abra su Google Drive, suba el archivo y ábralo con Hojas de cálculo de Google para llevar el registro en la nube.</span>
-                </li>
-              </ul>
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 border-r min-w-[220px]">Estudiante</th>
+                    {DEFAULT_RUBRIC.map((criterion) => (
+                      <th key={criterion.id} className="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-r min-w-[90px]">
+                        {criterion.criterio}
+                      </th>
+                    ))}
+                    <th className="p-3 text-xs font-bold text-blue-700 uppercase tracking-wider text-center bg-blue-50">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dailyRows.map((row) => {
+                    const total = calculateDailyTotal(row.rubricScores);
+                    return (
+                      <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-3 text-sm font-semibold text-slate-700 sticky left-0 bg-white border-r">{row.nombre}</td>
+                        {row.rubricScores.map((score, index) => (
+                          <td key={`${row.id}-${index}`} className="p-1 border-r text-center">
+                            <input
+                              type="text"
+                              value={score}
+                              onChange={(e) => handleDailyScoreChange(row.id, index, e.target.value)}
+                              className={`w-full h-9 text-center text-sm border-none focus:ring-2 focus:ring-blue-400 focus:outline-none rounded ${
+                                score !== '' && Number(score) < 60 ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700'
+                              }`}
+                              placeholder="0-100"
+                            />
+                          </td>
+                        ))}
+                        <td className="p-3 text-sm font-bold text-center bg-blue-50">
+                          <span className={total !== '' && Number(total) < 60 ? 'text-red-600' : 'text-blue-700'}>{total || '-'}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+
+            <ul className="space-y-2 text-sm text-slate-600 mt-4">
+              <li className="flex gap-2">
+                <ChevronRight size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>Cada guardado registra una evaluación diaria por estudiante en Google Sheets.</span>
+              </li>
+              <li className="flex gap-2">
+                <ChevronRight size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>La hoja semanal (`S1...S16`) se actualiza automáticamente con el promedio acumulado de esa semana.</span>
+              </li>
+              <li className="flex gap-2">
+                <ChevronRight size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>Después de guardar, el formulario se reinicia para la siguiente jornada.</span>
+              </li>
+            </ul>
           </div>
-        )}
+        </div>
       </main>
     </div>
   );
