@@ -416,7 +416,41 @@ const App = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <div className="md:hidden space-y-3">
+              {dailyRows.map((row) => {
+                const total = calculateDailyTotal(row.rubricScores);
+                return (
+                  <div key={row.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                    <p className="text-sm font-semibold text-slate-800 mb-3">{row.nombre}</p>
+                    <div className="space-y-2">
+                      {DEFAULT_RUBRIC.map((criterion, index) => (
+                        <div key={`${row.id}-mobile-${index}`}>
+                          <label className="text-xs text-slate-600 font-semibold block mb-1">
+                            {criterion.criterio} ({criterion.peso}%)
+                          </label>
+                          <input
+                            type="text"
+                            value={row.rubricScores[index]}
+                            onChange={(e) => handleDailyScoreChange(row.id, index, e.target.value)}
+                            className={`w-full h-9 px-3 text-sm border border-slate-300 focus:ring-2 focus:ring-blue-400 focus:outline-none rounded ${
+                              row.rubricScores[index] !== '' && Number(row.rubricScores[index]) < 60
+                                ? 'text-red-600 font-bold bg-red-50'
+                                : 'text-slate-700 bg-white'
+                            }`}
+                            placeholder="0-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 p-2 rounded-lg bg-blue-50 text-sm font-bold text-center">
+                      <span className={total !== '' && Number(total) < 60 ? 'text-red-600' : 'text-blue-700'}>Total: {total || '-'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
