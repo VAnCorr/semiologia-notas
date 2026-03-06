@@ -5,13 +5,13 @@ const DEFAULT_RUBRIC = [
   {
     id: 1,
     criterio: 'Entrevista con el paciente',
-    peso: 25,
+    peso: 20,
     descripcion: 'Realiza anamnesis dirigida, clara y ordenada.'
   },
   {
     id: 2,
     criterio: 'Ejecutó técnicas de examen físico',
-    peso: 25,
+    peso: 20,
     descripcion: 'Aplica correctamente inspección, palpación, percusión y auscultación.'
   },
   {
@@ -29,7 +29,7 @@ const DEFAULT_RUBRIC = [
   {
     id: 5,
     criterio: 'Asistencia en la semana',
-    peso: 10,
+    peso: 20,
     descripcion: 'Cumple asistencia y participación durante la semana.'
   }
 ];

@@ -31,11 +31,11 @@ Además crea una pestaña llamada `Rubrica` con encabezados:
 
 Ejemplo:
 
-- `Entrevista con el paciente | 25 | Realiza anamnesis dirigida, clara y ordenada.`
-- `Ejecutó técnicas de examen físico | 25 | Aplica correctamente inspección, palpación, percusión y auscultación.`
+- `Entrevista con el paciente | 20 | Realiza anamnesis dirigida, clara y ordenada.`
+- `Ejecutó técnicas de examen físico | 20 | Aplica correctamente inspección, palpación, percusión y auscultación.`
 - `Razonamiento clínico | 20 | Integra hallazgos y plantea diagnósticos diferenciales pertinentes.`
 - `Hoja de historia clínica elaborada | 20 | Documenta de forma completa, legible y estructurada.`
-- `Asistencia en la semana | 10 | Cumple asistencia y participación durante la semana.`
+- `Asistencia en la semana | 20 | Cumple asistencia y participación durante la semana.`
 
 > La pestaña `Evaluaciones` se crea automáticamente la primera vez que guardas una evaluación diaria desde la app.
 
