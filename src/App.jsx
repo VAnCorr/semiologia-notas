@@ -63,15 +63,15 @@ const RUBRIC_STYLES = [
 ];
 
 const initialStudents = [
-  'Brandon Joandy Acevedo Casco',
-  'Andres Ariel Carcache Medina',
-  'Luis Antonio García Murillo',
-  'Ashly Amelia Guadamuz Galán',
-  'José Luis Gutiérrez Flores',
-  'Kenneth Rigoberto Gutiérrez González',
-  'José Abel Gutiérrez Rostrán',
-  'Hilda María Jarquín Jarquín',
-  'Ronaldo Antonio Gutiérrez Sequeira'
+  'Ileana de los Ángeles Saballos Rosales',
+  'Melody Teresa Mccoy Nicaragua',
+  'Adán Isaí Núñez Rivera',
+  'Linda Lorett Delgado',
+  'Jairo José Ochoa Lumbí',
+  'Alfredo Fernando Ortega Machado',
+  'María Fernanda Acevedo Betanco',
+  'Diego Emanuel Sánchez Briceño',
+  
 ];
 
 const weeks = Array.from({ length: 16 }, (_, i) => `S${i + 1}`);
