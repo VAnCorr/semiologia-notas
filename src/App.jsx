@@ -63,14 +63,14 @@ const RUBRIC_STYLES = [
 ];
 
 const initialStudents = [
-  'Ileana de los Ángeles Saballos Rosales',
-  'Melody Teresa Mccoy Nicaragua',
-  'Adán Isaí Núñez Rivera',
-  'Linda Lorett Delgado',
-  'Jairo José Ochoa Lumbí',
-  'Alfredo Fernando Ortega Machado',
-  'María Fernanda Acevedo Betanco',
-  'Diego Emanuel Sánchez Briceño',
+  'Ernesto Hernández',
+  'Ethel Hernández',
+  'Luciano León',
+  'Francine Langrand',
+  'Rosa López',
+  'Stefany Ampié',
+  'Randall López',
+  'Cesia Jarquín',
   
 ];
 
